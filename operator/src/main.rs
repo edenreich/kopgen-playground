@@ -6,9 +6,11 @@ use kube::{api::Api, Client as KubeClient, CustomResourceExt};
 use log::{debug, error, info};
 use operator::{
     cli::{Cli, Commands},
-    deploy_crd
+    deploy_crd,
 };
 use warp::Filter;
+
+use operator::types::{cat::Cat, dog::Dog, horse::Horse};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -29,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
             if install_crds {
                 info!("Deploying CRDs...");
 
-                let crds = vec![];
+                let crds = vec![Cat::crd(), Dog::crd(), Horse::crd()];
 
                 for crd in crds {
                     deploy_crd(kube_client_api.clone(), crd).await?;
