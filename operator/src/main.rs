@@ -6,9 +6,11 @@ use kube::{api::Api, Client as KubeClient, CustomResourceExt};
 use log::{debug, error, info};
 use operator::{
     cli::{Cli, Commands},
-    deploy_crd,
+    deploy_crd, wait_for_crd,
 };
 use warp::Filter;
+
+use operator::controllers::cats;
 
 use operator::types::{cat::Cat, dog::Dog, horse::Horse};
 
@@ -38,7 +40,18 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            debug!("No controllers to start. Please check your configuration. KUBERNETES_OPERATOR_INCLUDE_TAGS is possibly empty.");
+            let controllers_crds = vec![format!("cats.example.com")];
+            for controller_crd in controllers_crds {
+                if let Err(e) = wait_for_crd(kube_client_api.clone(), &controller_crd).await {
+                    error!("Error waiting for CRD {}: {}", &controller_crd, e);
+                }
+            }
+
+            // Start the cats controller for the cats.example.com/v1 API group
+            let cats_client = Api::namespaced(kube_client.clone(), "default");
+            tokio::spawn(async {
+                let _cats_controller = cats::handle(cats_client).await;
+            });
 
             tokio::spawn(async {
                 let liveness_route = warp::path!("healthz")
