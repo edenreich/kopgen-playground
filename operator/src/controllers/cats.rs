@@ -24,41 +24,6 @@ const REQUEUE_AFTER_IN_SEC: u64 = 30;
 const API_URL: &str = "http://localhost:8080";
 const API_USER_AGENT: &str = "k8s-operator";
 
-fn convert_uuid_to_string(uuid: Option<uuid::Uuid>) -> Option<String> {
-    uuid.map(|uuid| uuid.to_string())
-}
-
-fn convert_string_to_uuid(uuid: Option<String>) -> Option<uuid::Uuid> {
-    match uuid {
-        Some(uuid) => match uuid::Uuid::parse_str(&uuid) {
-            Ok(uuid) => Some(uuid),
-            Err(_) => None,
-        },
-        None => None,
-    }
-}
-
-fn convert_kube_type_to_dto(cat: Cat) -> CatDto {
-    let uuid = match cat.status {
-        Some(status) => convert_string_to_uuid(status.uuid),
-        None => None,
-    };
-    CatDto {
-        uuid,
-        name: cat.spec.name,
-        breed: cat.spec.breed,
-        age: cat.spec.age,
-    }
-}
-
-fn convert_dto_to_kube_type(cat: CatDto) -> CatSpec {
-    CatSpec {
-        name: cat.name,
-        breed: cat.breed,
-        age: cat.age,
-    }
-}
-
 struct ExtraArgs {
     kube_client: Api<Cat>,
 }
@@ -134,8 +99,8 @@ async fn add_default_status(kube_client: &Api<Cat>, cat: &mut Cat) -> Result<(),
 }
 
 pub async fn check_for_drift(kube_client: &Api<Cat>, cat: &mut Cat) -> Result<(), OperatorError> {
-    let dto = convert_kube_type_to_dto(cat.clone());
-    let uuid = convert_uuid_to_string(dto.uuid).unwrap_or_default();
+    let dto = converters::kube_type_to_dto(cat.clone());
+    let uuid = converters::uuid_to_string(dto.uuid).unwrap_or_default();
     let config = get_client_config().await?;
 
     if uuid.is_empty() {
@@ -145,9 +110,9 @@ pub async fn check_for_drift(kube_client: &Api<Cat>, cat: &mut Cat) -> Result<()
 
     match get_cat_by_id(&config, &uuid).await {
         Ok(dto) => {
-            let remote_cat = convert_dto_to_kube_type(dto);
+            let remote_cat = converters::dto_to_kube_type(dto);
             if remote_cat != cat.spec {
-                let current_cat_dto = convert_kube_type_to_dto(cat.clone());
+                let current_cat_dto = converters::kube_type_to_dto(cat.clone());
                 warn!("Cat has drifted remotely, sending an update to remote...");
                 match update_cat_by_id(&config, &uuid, current_cat_dto).await {
                     Ok(_) => {
@@ -213,7 +178,7 @@ pub async fn handle_update(
     cat: &mut Cat,
     uuid: &str,
 ) -> Result<(), OperatorError> {
-    let dto = convert_kube_type_to_dto(cat.clone());
+    let dto = converters::kube_type_to_dto(cat.clone());
     let config = get_client_config().await?;
 
     if uuid.is_empty() {
@@ -235,13 +200,13 @@ pub async fn handle_update(
 }
 
 pub async fn handle_create(kube_client: &Api<Cat>, cat: &mut Cat) -> Result<(), OperatorError> {
-    let dto = convert_kube_type_to_dto(cat.clone());
+    let dto = converters::kube_type_to_dto(cat.clone());
     let config = get_client_config().await?;
 
     match create_cat(&config, dto.clone()).await {
         Ok(remote_cat) => {
             if let Some(uuid) = remote_cat.uuid {
-                let uuid = convert_uuid_to_string(Some(uuid)).unwrap();
+                let uuid = converters::uuid_to_string(Some(uuid)).unwrap();
                 add_finalizer(cat, kube_client.clone()).await?;
                 let generation = cat.meta().generation;
                 let condition = create_condition(
@@ -273,6 +238,45 @@ pub async fn handle_create(kube_client: &Api<Cat>, cat: &mut Cat) -> Result<(), 
         Err(e) => {
             error!("Failed to create a new cat: {:?}", e);
             Err(OperatorError::FailedToCreateResource(e.into()))
+        }
+    }
+}
+
+mod converters {
+    use super::{Cat, CatDto, CatSpec};
+
+    pub fn uuid_to_string(uuid: Option<uuid::Uuid>) -> Option<String> {
+        uuid.map(|uuid| uuid.to_string())
+    }
+
+    fn string_to_uuid(uuid: Option<String>) -> Option<uuid::Uuid> {
+        match uuid {
+            Some(uuid) => match uuid::Uuid::parse_str(&uuid) {
+                Ok(uuid) => Some(uuid),
+                Err(_) => None,
+            },
+            None => None,
+        }
+    }
+
+    pub fn kube_type_to_dto(cat: Cat) -> CatDto {
+        let uuid = match cat.status {
+            Some(status) => string_to_uuid(status.uuid),
+            None => None,
+        };
+        CatDto {
+            uuid,
+            name: cat.spec.name,
+            breed: cat.spec.breed,
+            age: cat.spec.age,
+        }
+    }
+
+    pub fn dto_to_kube_type(cat: CatDto) -> CatSpec {
+        CatSpec {
+            name: cat.name,
+            breed: cat.breed,
+            age: cat.age,
         }
     }
 }
