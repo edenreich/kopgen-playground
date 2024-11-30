@@ -13,9 +13,10 @@ use operator::{
 };
 use warp::Filter;
 
-use operator::controllers::cats;
-
-use operator::types::{cat::Cat, dog::Dog, horse::Horse};
+use operator::{
+    controllers::cats,
+    types::{cat::Cat, dog::Dog, horse::Horse},
+};
 
 use openapi::apis::cats_api::CatsApiClient;
 
