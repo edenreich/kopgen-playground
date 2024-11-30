@@ -95,3 +95,71 @@ pub mod dogs_api;
 pub mod horses_api;
 
 pub mod configuration;
+
+use std::sync::Arc;
+
+pub trait Api {
+    fn cats_api(&self) -> &dyn cats_api::CatsApi;
+    fn dogs_api(&self) -> &dyn dogs_api::DogsApi;
+    fn horses_api(&self) -> &dyn horses_api::HorsesApi;
+}
+
+pub struct ApiClient {
+    cats_api: Box<dyn cats_api::CatsApi>,
+    dogs_api: Box<dyn dogs_api::DogsApi>,
+    horses_api: Box<dyn horses_api::HorsesApi>,
+}
+
+impl ApiClient {
+    pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
+        Self {
+            cats_api: Box::new(cats_api::CatsApiClient::new(configuration.clone())),
+            dogs_api: Box::new(dogs_api::DogsApiClient::new(configuration.clone())),
+            horses_api: Box::new(horses_api::HorsesApiClient::new(configuration.clone())),
+        }
+    }
+}
+
+impl Api for ApiClient {
+    fn cats_api(&self) -> &dyn cats_api::CatsApi {
+        self.cats_api.as_ref()
+    }
+    fn dogs_api(&self) -> &dyn dogs_api::DogsApi {
+        self.dogs_api.as_ref()
+    }
+    fn horses_api(&self) -> &dyn horses_api::HorsesApi {
+        self.horses_api.as_ref()
+    }
+}
+
+#[cfg(feature = "mockall")]
+pub struct MockApiClient {
+    pub cats_api_mock: cats_api::MockCatsApi,
+    pub dogs_api_mock: dogs_api::MockDogsApi,
+    pub horses_api_mock: horses_api::MockHorsesApi,
+}
+
+#[cfg(feature = "mockall")]
+impl MockApiClient {
+    pub fn new() -> Self {
+        Self {
+            cats_api_mock: cats_api::MockCatsApi::new(),
+            dogs_api_mock: dogs_api::MockDogsApi::new(),
+            horses_api_mock: horses_api::MockHorsesApi::new(),
+        }
+    }
+}
+
+#[cfg(feature = "mockall")]
+impl Api for MockApiClient {
+    fn cats_api(&self) -> &dyn cats_api::CatsApi {
+        &self.cats_api_mock
+    }
+    fn dogs_api(&self) -> &dyn dogs_api::DogsApi {
+        &self.dogs_api_mock
+    }
+    fn horses_api(&self) -> &dyn horses_api::HorsesApi {
+        &self.horses_api_mock
+    }
+}
+

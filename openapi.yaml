@@ -1,25 +1,16 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
   title: Pets API
   version: 1.0.1
   description: An API for managing pets
-  x-kubernetes-operator-name: Example Operator
-  x-kubernetes-operator-author: Unknown
-  x-kubernetes-operator-api-group: example.com
-  x-kubernetes-operator-api-version: v1
-  x-kubernetes-operator-resource-ref: uuid
-  x-kubernetes-operator-include-tags:
-  - cats
-  x-kubernetes-operator-example-metadata-spec-field-ref: name
-  x-kubernetes-operator-secret-name: operator-secret
 servers:
-- url: http://localhost:8080
-  description: Development server
+  - url: http://localhost:8080
+    description: Development server
 paths:
   /cats:
     get:
       tags:
-      - cats
+        - cats
       operationId: getCats
       summary: Get all cats
       responses:
@@ -36,7 +27,7 @@ paths:
                   $ref: '#/components/examples/Cats'
     post:
       tags:
-      - cats
+        - cats
       operationId: createCat
       summary: Create a new cat
       requestBody:
@@ -61,15 +52,15 @@ paths:
   /cats/{id}:
     get:
       tags:
-      - cats
+        - cats
       operationId: getCatById
       summary: Get a cat by ID
       parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         '200':
           description: OK
@@ -84,15 +75,15 @@ paths:
           description: Not found
     put:
       tags:
-      - cats
+        - cats
       operationId: updateCatById
       summary: Update a cat by ID
       parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -116,22 +107,22 @@ paths:
           description: Not found
     delete:
       tags:
-      - cats
+        - cats
       operationId: deleteCatById
       summary: Delete a cat by ID
       parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         '204':
           description: No content
   /dogs:
     get:
       tags:
-      - dogs
+        - dogs
       operationId: getDogs
       summary: Get all dogs
       responses:
@@ -148,7 +139,7 @@ paths:
                   $ref: '#/components/examples/Dogs'
     post:
       tags:
-      - dogs
+        - dogs
       operationId: createDog
       summary: Create a new dog
       requestBody:
@@ -173,15 +164,15 @@ paths:
   /dogs/{id}:
     get:
       tags:
-      - dogs
+        - dogs
       operationId: getDogById
       summary: Get a dog by ID
       parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         '200':
           description: OK
@@ -196,15 +187,15 @@ paths:
           description: Not found
     put:
       tags:
-      - dogs
+        - dogs
       operationId: updateDogById
       summary: Update a dog by ID
       parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -228,22 +219,22 @@ paths:
           description: Not found
     delete:
       tags:
-      - dogs
+        - dogs
       operationId: deleteDogById
       summary: Delete a dog by ID
       parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         '204':
           description: No content
   /horses:
     get:
       tags:
-      - horses
+        - horses
       operationId: getHorses
       summary: Get all horses
       responses:
@@ -260,7 +251,7 @@ paths:
                   $ref: '#/components/examples/Horses'
     post:
       tags:
-      - horses
+        - horses
       operationId: createHorse
       summary: Create a new horse
       requestBody:
@@ -285,15 +276,15 @@ paths:
   /horses/{id}:
     get:
       tags:
-      - horses
+        - horses
       operationId: getHorseById
       summary: Get a horse by ID
       parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         '200':
           description: OK
@@ -308,15 +299,15 @@ paths:
           description: Not found
     put:
       tags:
-      - horses
+        - horses
       operationId: updateHorseById
       summary: Update a horse by ID
       parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -340,15 +331,15 @@ paths:
           description: Not found
     delete:
       tags:
-      - horses
+        - horses
       operationId: deleteHorseById
       summary: Delete a horse by ID
       parameters:
-      - in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         '204':
           description: No content
@@ -362,14 +353,14 @@ components:
         age: 3
     Cats:
       value:
-      - uuid: 123e4567-e89b-12d3-a456-426614174000
-        name: Fluffy
-        breed: Persian
-        age: 3
-      - uuid: 123e4567-e89b-12d3-a456-426614174001
-        name: Whiskers
-        breed: Siamese
-        age: 2
+        - uuid: 123e4567-e89b-12d3-a456-426614174000
+          name: Fluffy
+          breed: Persian
+          age: 3
+        - uuid: 123e4567-e89b-12d3-a456-426614174001
+          name: Whiskers
+          breed: Siamese
+          age: 2
     Dog:
       value:
         name: Fido
@@ -377,14 +368,14 @@ components:
         age: 3
     Dogs:
       value:
-      - uuid: 123e4567-e89b-12d3-a456-426614174000
-        name: Fido
-        breed: Bulldog
-        age: 3
-      - uuid: 123e4567-e89b-12d3-a456-426614174001
-        name: Rex
-        breed: German Shepherd
-        age: 5
+        - uuid: 123e4567-e89b-12d3-a456-426614174000
+          name: Fido
+          breed: Bulldog
+          age: 3
+        - uuid: 123e4567-e89b-12d3-a456-426614174001
+          name: Rex
+          breed: German Shepherd
+          age: 5
     Horse:
       value:
         uuid: 123e4567-e89b-12d3-a456-426614174002
@@ -393,21 +384,21 @@ components:
         age: 5
     Horses:
       value:
-      - uuid: 255b9916-561b-4c8b-9626-53997b01d57d
-        name: Star
-        breed: Arabian
-        age: 5
-      - uuid: cf5cf93f-a11f-4b1c-8995-337a54c859c2
-        name: Thunder
-        breed: Thoroughbred
-        age: 7
+        - uuid: 255b9916-561b-4c8b-9626-53997b01d57d
+          name: Star
+          breed: Arabian
+          age: 5
+        - uuid: cf5cf93f-a11f-4b1c-8995-337a54c859c2
+          name: Thunder
+          breed: Thoroughbred
+          age: 7
   schemas:
     Cat:
       type: object
       required:
-      - name
-      - breed
-      - age
+        - name
+        - breed
+        - age
       properties:
         uuid:
           type: string
@@ -427,9 +418,9 @@ components:
     Dog:
       type: object
       required:
-      - name
-      - breed
-      - age
+        - name
+        - breed
+        - age
       properties:
         uuid:
           type: string
@@ -449,9 +440,9 @@ components:
     Horse:
       type: object
       required:
-      - name
-      - breed
-      - age
+        - name
+        - breed
+        - age
       properties:
         uuid:
           type: string

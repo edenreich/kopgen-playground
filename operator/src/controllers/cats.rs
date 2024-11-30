@@ -6,34 +6,33 @@ use kube::api::{Api, PostParams, Resource};
 use kube_runtime::{controller::Action, watcher, Controller};
 use log::{error, info, warn};
 
-use openapi::{
-    apis::{
-        cats_api::{create_cat, delete_cat_by_id, get_cat_by_id, update_cat_by_id},
-        configuration::Configuration,
-    },
-    models::Cat as CatDto,
-};
+use openapi::{apis::cats_api::CatsApi, models::Cat as CatDto};
 
 use crate::{
+    add_finalizer, create_condition,
     errors::OperatorError,
+    remove_finalizer,
     types::cat::{Cat, CatSpec, CatStatus},
-    {add_finalizer, create_condition, remove_finalizer, update_status},
+    update_status,
 };
 
 const REQUEUE_AFTER_IN_SEC: u64 = 30;
-const API_URL: &str = "http://localhost:8080";
-const API_USER_AGENT: &str = "k8s-operator";
 
 struct ExtraArgs {
     kube_client: Api<Cat>,
+    external_api_client: Arc<dyn CatsApi>,
 }
 
-pub async fn handle(kube_client: Api<Cat>) -> Result<(), OperatorError> {
+pub async fn handle(
+    kube_client: Api<Cat>,
+    external_api_client: Arc<dyn CatsApi>,
+) -> Result<(), OperatorError> {
     info!("Starting the controller");
     let controller = Controller::new(kube_client.clone(), watcher::Config::default());
 
     let extra_args = Arc::new(ExtraArgs {
         kube_client: kube_client.clone(),
+        external_api_client,
     });
 
     info!("Running the controller");
@@ -53,6 +52,7 @@ pub async fn handle(kube_client: Api<Cat>) -> Result<(), OperatorError> {
 
 async fn reconcile(cat: Arc<Cat>, ctx: Arc<ExtraArgs>) -> Result<Action, OperatorError> {
     let kube_client = ctx.kube_client.clone();
+    let cats_client = ctx.external_api_client.clone();
     let mut cat = cat.as_ref().clone();
     let uuid = cat
         .status
@@ -65,26 +65,15 @@ async fn reconcile(cat: Arc<Cat>, ctx: Arc<ExtraArgs>) -> Result<Action, Operato
     }
 
     if cat.meta().deletion_timestamp.is_some() {
-        handle_delete(&kube_client, &mut cat, &uuid).await?;
+        handle_delete(&kube_client, cats_client.as_ref(), &mut cat, &uuid).await?;
     } else if uuid.is_empty() {
-        handle_create(&kube_client, &mut cat).await?;
-    } else if cat.meta().generation != cat.status.as_ref().unwrap().observed_generation {
-        handle_update(&kube_client, &mut cat, &uuid).await?;
+        handle_create(&kube_client, cats_client.as_ref(), &mut cat).await?;
+    } else if cat.meta().generation != cat.status.as_ref().as_ref().unwrap().observed_generation {
+        handle_update(&kube_client, cats_client.as_ref(), &mut cat, &uuid).await?;
     }
 
-    check_for_drift(&kube_client, &mut cat).await?;
+    check_for_drift(&kube_client, cats_client, &mut cat).await?;
     Ok(Action::requeue(Duration::from_secs(REQUEUE_AFTER_IN_SEC)))
-}
-
-async fn get_client_config() -> Result<Configuration, OperatorError> {
-    let config = Configuration {
-        base_path: API_URL.to_string(),
-        client: reqwest::Client::new(),
-        user_agent: Some(API_USER_AGENT.to_string()),
-        bearer_access_token: Some(std::env::var("ACCESS_TOKEN").unwrap_or_default()),
-        ..Default::default()
-    };
-    Ok(config)
 }
 
 async fn add_default_status(kube_client: &Api<Cat>, cat: &mut Cat) -> Result<(), OperatorError> {
@@ -98,23 +87,26 @@ async fn add_default_status(kube_client: &Api<Cat>, cat: &mut Cat) -> Result<(),
         .map_err(|e| OperatorError::FailedToUpdateStatus(e.into()))
 }
 
-pub async fn check_for_drift(kube_client: &Api<Cat>, cat: &mut Cat) -> Result<(), OperatorError> {
+pub async fn check_for_drift(
+    kube_client: &Api<Cat>,
+    cats_client: Arc<dyn CatsApi>,
+    cat: &mut Cat,
+) -> Result<(), OperatorError> {
     let dto = converters::kube_type_to_dto(cat.clone());
     let uuid = converters::uuid_to_string(dto.uuid).unwrap_or_default();
-    let config = get_client_config().await?;
 
     if uuid.is_empty() {
         warn!("Cat has no status, cannot get by id or check for drift. Skipping...");
         return Ok(());
     }
 
-    match get_cat_by_id(&config, &uuid).await {
+    match cats_client.get_cat_by_id(&uuid).await {
         Ok(dto) => {
             let remote_cat = converters::dto_to_kube_type(dto);
             if remote_cat != cat.spec {
                 let current_cat_dto = converters::kube_type_to_dto(cat.clone());
                 warn!("Cat has drifted remotely, sending an update to remote...");
-                match update_cat_by_id(&config, &uuid, current_cat_dto).await {
+                match cats_client.update_cat_by_id(&uuid, current_cat_dto).await {
                     Ok(_) => {
                         info!("Cat updated successfully");
                         let condition = create_condition(
@@ -154,16 +146,16 @@ fn error_policy(_resource: Arc<Cat>, error: &OperatorError, _ctx: Arc<ExtraArgs>
 
 async fn handle_delete(
     kube_client: &Api<Cat>,
+    cats_client: &dyn CatsApi,
     cat: &mut Cat,
     uuid: &str,
 ) -> Result<(), OperatorError> {
-    let config = get_client_config().await?;
     if uuid.is_empty() {
         warn!("Cat has no status, cannot delete by id. Skipping...");
         return Ok(());
     }
 
-    delete_cat_by_id(&config, uuid).await.map_err(|e| {
+    cats_client.delete_cat_by_id(uuid).await.map_err(|e| {
         error!("Failed to delete cat: {:?}", e);
         OperatorError::FailedToDeleteResource(e.into())
     })?;
@@ -175,17 +167,18 @@ async fn handle_delete(
 
 pub async fn handle_update(
     kube_client: &Api<Cat>,
+    cats_client: &dyn CatsApi,
     cat: &mut Cat,
     uuid: &str,
 ) -> Result<(), OperatorError> {
-    let dto = converters::kube_type_to_dto(cat.clone());
-    let config = get_client_config().await?;
-
     if uuid.is_empty() {
         return Err(OperatorError::InvalidResource("uuid is empty".to_string()));
     }
 
-    update_cat_by_id(&config, uuid, dto)
+    let dto = converters::kube_type_to_dto(cat.clone());
+
+    cats_client
+        .update_cat_by_id(uuid, dto)
         .await
         .map_err(|e| OperatorError::FailedToUpdateResource(e.into()))?;
 
@@ -199,11 +192,14 @@ pub async fn handle_update(
     Ok(())
 }
 
-pub async fn handle_create(kube_client: &Api<Cat>, cat: &mut Cat) -> Result<(), OperatorError> {
+pub async fn handle_create(
+    kube_client: &Api<Cat>,
+    cats_client: &dyn CatsApi,
+    cat: &mut Cat,
+) -> Result<(), OperatorError> {
     let dto = converters::kube_type_to_dto(cat.clone());
-    let config = get_client_config().await?;
 
-    match create_cat(&config, dto.clone()).await {
+    match cats_client.create_cat(dto.clone()).await {
         Ok(remote_cat) => {
             if let Some(uuid) = remote_cat.uuid {
                 let uuid = converters::uuid_to_string(Some(uuid)).unwrap();

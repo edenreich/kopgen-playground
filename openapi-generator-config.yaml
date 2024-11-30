@@ -1,0 +1,11 @@
+---
+generatorName: rust
+inputSpec: openapi.yaml
+outputDir: client-sdk
+library: reqwest-trait
+additionalProperties:
+  topLevelApiClient: true
+  packageName: openapi
+  mockall: true
+enumNameMappings:
+  delivered: shipped
