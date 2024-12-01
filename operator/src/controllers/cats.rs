@@ -275,6 +275,17 @@ pub async fn handle_create(
         }
         Err(e) => {
             error!("Failed to create a new cat: {:?}", e);
+            let condition = kube_client.create_condition(
+                "Failed",
+                "AvailableFailed",
+                "Failed to create the resource",
+                "Resource has not been created",
+                cat.meta().generation,
+            );
+            if let Some(status) = cat.status.as_mut() {
+                status.conditions.push(condition);
+            }
+            kube_client.update_status(&cat).await?;
             Err(OperatorError::FailedToCreateResource(e.into()))
         }
     }

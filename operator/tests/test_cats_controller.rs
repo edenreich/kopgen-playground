@@ -8,6 +8,7 @@ mod tests {
     use openapi::apis::cats_api::{
         CreateCatError, DeleteCatByIdError, GetCatByIdError, GetCatsError, UpdateCatByIdError,
     };
+    use openapi::apis::ResponseContent;
     use openapi::{apis::cats_api::CatsApi, apis::Error, models::Cat as CatDto};
     use operator::{
         controllers::cats::{converters, handle_create},
@@ -140,5 +141,59 @@ mod tests {
         assert_eq!(condition.reason, "CatCreated");
         assert_eq!(condition.message, "The cat has been created successfully");
         assert!(condition.last_transition_time.0.timestamp() > 0);
+    }
+
+    #[tokio::test]
+    async fn test_handle_create_failed() {
+        let mut kube_client = MockKubeApiClient::new();
+        let mut mock_cats_api = MockCatsApi::new();
+
+        let mut cat = Cat {
+            metadata: kube::api::ObjectMeta {
+                name: Some("whiskers".to_string()),
+                ..Default::default()
+            },
+            spec: CatSpec {
+                name: "Whiskers".to_string(),
+                breed: "Siamese".to_string(),
+                age: 3,
+            },
+            status: None,
+        };
+
+        mock_cats_api.expect_create_cat().times(1).returning(|_| {
+            Err(Error::ResponseError(ResponseContent {
+                status: reqwest::StatusCode::BAD_REQUEST,
+                content: "Internal Server Error".to_string(),
+                entity: None,
+            }))
+        });
+
+        kube_client
+            .expect_create_condition()
+            .times(1)
+            .returning(|_, _, _, _, _| Condition {
+                last_transition_time: Time(chrono::Utc::now()),
+                message: "Failed to create the cat".to_string(),
+                observed_generation: Some(0),
+                reason: "CatNotCreated".to_string(),
+                status: "False".to_string(),
+                type_: "AvailableNotCreated".to_string(),
+            });
+
+        kube_client
+            .expect_update_status()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let cats_api = Arc::new(mock_cats_api) as Arc<dyn CatsApi>;
+
+        let result = handle_create(&kube_client, cats_api.as_ref(), &mut cat).await;
+
+        assert!(result.is_err());
+        assert!(cat.status.is_some());
+        let status = cat.status.as_ref().unwrap();
+        assert!(status.uuid.is_none());
+        assert_eq!(status.conditions.len(), 1);
     }
 }
