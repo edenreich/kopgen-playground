@@ -72,8 +72,8 @@ mod tests {
 
         let remote_cat = CatDto {
             uuid: Some(Uuid::new_v4()),
-            name: "Whiskers".to_string(),
-            breed: "Siamese".to_string(),
+            name: cat.spec.name.clone(),
+            breed: cat.spec.breed.clone(),
             age: cat.spec.age,
         };
 
