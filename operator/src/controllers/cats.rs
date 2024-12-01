@@ -218,10 +218,23 @@ pub async fn handle_update(
 
     let cat_name = cat.metadata.name.as_deref().unwrap_or_default();
     kube_client
-        .get_client()
         .replace(cat_name, &PostParams::default(), cat)
-        .await
-        .map_err(|e| OperatorError::FailedToUpdateResource(e.into()))?;
+        .await?;
+
+    // Create a condition to indicate that the resource has been updated
+    let generation = cat.meta().generation;
+    let condition = kube_client.create_condition(
+        "Updated",
+        "AvailableUpdated",
+        "Updated the resource",
+        "Resource has been updated",
+        generation,
+    );
+    if let Some(status) = cat.status.as_mut() {
+        status.conditions.push(condition);
+        status.observed_generation = generation;
+    }
+    kube_client.update_status(cat).await?;
 
     info!("Updated a cat by id went successfully");
     Ok(())
@@ -240,6 +253,13 @@ pub async fn handle_create(
 
     let dto = converters::kube_type_to_dto(cat.clone());
 
+    if let Some(uuid) = dto.uuid {
+        if let Ok(_) = cats_client.get_cat_by_id(&uuid.to_string()).await {
+            warn!("Remote cat already exists, skipping creation");
+            return Ok(());
+        }
+    }
+
     match cats_client.create_cat(dto.clone()).await {
         Ok(remote_cat) => {
             if let Some(uuid) = remote_cat.uuid {
@@ -254,20 +274,11 @@ pub async fn handle_create(
                     generation,
                 );
                 if let Some(status) = cat.status.as_mut() {
-                    if !status
-                        .conditions
-                        .iter()
-                        .any(|c| c.type_ == "AvailableCreated")
-                    {
-                        status.conditions.push(condition);
-                    }
+                    status.conditions.push(condition);
                     status.uuid = Some(uuid);
                     status.observed_generation = generation;
                 }
-                kube_client
-                    .update_status(&cat)
-                    .await
-                    .map_err(|e| OperatorError::FailedToUpdateStatus(e.into()))
+                kube_client.update_status(&cat).await
             } else {
                 warn!("Remote cat has no uuid, cannot update status");
                 Ok(())

@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::{Condition, Time};
 use kube::{
-    api::{Api, Patch, PatchParams, Resource},
+    api::{Api, Patch, PatchParams, PostParams, Resource},
     core::object::HasStatus,
     Error,
 };
@@ -40,6 +40,20 @@ where
     ) -> Condition;
 
     async fn update_status(&self, status: &T) -> Result<(), OperatorError>;
+
+    /// Replaces the specified resource in Kubernetes.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the resource to replace.
+    /// * `post_params` - Parameters for the replace operation.
+    /// * `resource` - The new state of the resource.
+    async fn replace(
+        &self,
+        name: &str,
+        post_params: &PostParams,
+        resource: &T,
+    ) -> Result<T, OperatorError>;
 
     fn get_client(&self) -> Api<T>;
 
@@ -188,6 +202,21 @@ where
         Err(OperatorError::FailedToUpdateStatus(anyhow::anyhow!(
             "Failed to update status after retries."
         )))
+    }
+
+    async fn replace(
+        &self,
+        name: &str,
+        post_params: &PostParams,
+        resource: &T,
+    ) -> Result<T, OperatorError> {
+        self.client
+            .replace(name, post_params, &resource.clone())
+            .await
+            .map_err(|e| {
+                error!("Failed to replace resource `{}`: {:?}", name, e);
+                OperatorError::FailedToUpdateResource(e.into())
+            })
     }
 
     fn get_client(&self) -> Api<T> {
