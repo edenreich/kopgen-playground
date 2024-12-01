@@ -33,4 +33,8 @@ pub enum OperatorError {
     ResourceNotFound(String),
     #[error("Invalid resource: {0}")]
     InvalidResource(String),
+    #[error("Invalid resource state: {0}")]
+    InvalidResourceState(String),
+    #[error("Failed to deploy CRD: {0}")]
+    FailedToDeployCRD(#[source] anyhow::Error),
 }
