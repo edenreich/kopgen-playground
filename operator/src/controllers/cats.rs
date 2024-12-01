@@ -15,8 +15,11 @@ use crate::{
     KubeApi,
 };
 
+/// TOOO - extract to config map maybe
 const REQUEUE_AFTER_IN_SEC: u64 = 30;
 
+/// - Holds shared clients for interacting with Kubernetes (kube_client).
+/// - Holds shared clients for interacting with the external system.
 pub struct ContextData {
     kube_client: Arc<dyn KubeApi<Cat> + Send + Sync>,
     cats_client: Arc<dyn CatsApi + Send + Sync>,
@@ -34,6 +37,12 @@ impl ContextData {
     }
 }
 
+/// Initializes and starts the controller to watch resources.
+/// Flow:
+///   - Creates a ContextData instance.
+///   - Sets up the controller with the Kubernetes client.
+///   - Defines the reconciliation logic (reconcile) and error handling (error_policy).
+///   - Starts the event loop to process reconciliation results.
 pub async fn handle(
     kube_client: Arc<dyn KubeApi<Cat> + Send + Sync>,
     cats_client: Arc<dyn CatsApi + Send + Sync>,
@@ -60,6 +69,16 @@ pub async fn handle(
     Ok(())
 }
 
+/// Ensures the actual state of a resource matches the desired state.
+/// Flow:
+///   - Initialization: Clones necessary clients and extracts the uuid from the resource status.
+///   - Status Setup: Adds default status if it's missing.
+///   - Operation Handling:
+///   - Deletion: If the resource is marked for deletion, invokes handle_delete.
+///   - Creation: If there's no uuid, it's a new resource; invokes handle_create.
+///   - Update: If the generation has changed, invokes handle_update.
+///   - Drift Detection: Calls check_for_drift to synchronize any discrepancies between local and remote states.
+///   - Requeue: Schedules the next reconciliation after a defined interval.
 pub async fn reconcile(cat: Arc<Cat>, ctx: Arc<ContextData>) -> Result<Action, OperatorError> {
     let kube_client = ctx.kube_client.clone();
     let cats_client = ctx.cats_client.clone();
@@ -86,6 +105,7 @@ pub async fn reconcile(cat: Arc<Cat>, ctx: Arc<ContextData>) -> Result<Action, O
     Ok(Action::requeue(Duration::from_secs(REQUEUE_AFTER_IN_SEC)))
 }
 
+/// Initializes the status field of a Cat resource with default values.
 pub async fn add_default_status(cat: &mut Cat) -> Result<(), OperatorError> {
     cat.status = Some(CatStatus {
         conditions: vec![],
@@ -95,6 +115,8 @@ pub async fn add_default_status(cat: &mut Cat) -> Result<(), OperatorError> {
     Ok(())
 }
 
+/// Ensures consistency between the local Kubernetes Cat resource
+/// and its remote counterpart by detecting and resolving any discrepancies.
 pub async fn check_for_drift(
     kube_client: Arc<dyn KubeApi<Cat>>,
     cats_client: Arc<dyn CatsApi>,
@@ -147,11 +169,14 @@ pub async fn check_for_drift(
     Ok(())
 }
 
+/// Defines how the controller should respond to errors during reconciliation.
+/// In this case, it logs the error and schedules a requeue for retry.
 fn error_policy(_resource: Arc<Cat>, error: &OperatorError, _ctx: Arc<ContextData>) -> Action {
     error!("Error processing event: {:?}", error);
     Action::requeue(Duration::from_secs(REQUEUE_AFTER_IN_SEC))
 }
 
+/// Deletes the remote resource and removes the finalizer from the local Kubernetes resource.
 pub async fn handle_delete(
     kube_client: &dyn KubeApi<Cat>,
     cats_client: &dyn CatsApi,
@@ -173,6 +198,7 @@ pub async fn handle_delete(
     Ok(())
 }
 
+/// Updates the remote resource and synchronizes the local Kubernetes resource.
 pub async fn handle_update(
     kube_client: &dyn KubeApi<Cat>,
     cats_client: &dyn CatsApi,
@@ -201,6 +227,8 @@ pub async fn handle_update(
     Ok(())
 }
 
+/// Creates a corresponding remote resource and
+/// updates the local Kubernetes resource with necessary metadata.
 pub async fn handle_create(
     kube_client: &dyn KubeApi<Cat>,
     cats_client: &dyn CatsApi,
@@ -252,6 +280,9 @@ pub async fn handle_create(
     }
 }
 
+/// Provides utility functions to convert between Kubernetes types
+/// and Data Transfer Objects.
+/// This is essential for synchronizing state between Kubernetes and external systems.
 pub mod converters {
     use super::{Cat, CatDto, CatSpec};
 
