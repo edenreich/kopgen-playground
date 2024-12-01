@@ -124,3 +124,6 @@ export PKG_CONFIG_ALLOW_CROSS=1
 
 # For task auto-completion
 eval "$(task --completion zsh)" 
+
+# For kubectl auto-completion
+source <(kubectl completion zsh)
