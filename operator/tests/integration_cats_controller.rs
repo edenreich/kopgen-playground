@@ -241,6 +241,11 @@ mod tests {
         kube_client
             .expect_update_status()
             .times(1)
+            .withf(|cat| {
+                cat.status.is_some()
+                    && cat.status.as_ref().unwrap().uuid.is_some()
+                    && cat.status.as_ref().unwrap().observed_generation == None
+            })
             .returning(|_| Ok(()));
 
         let kube_client = Arc::new(kube_client) as Arc<dyn KubeApi<Cat>>;
@@ -256,8 +261,6 @@ mod tests {
         .await;
 
         assert!(result.is_ok());
-        println!("{:#?}", cat);
-        assert!(cat.status.is_some());
     }
 
     #[tokio::test]
