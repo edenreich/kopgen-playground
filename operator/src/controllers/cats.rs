@@ -107,11 +107,7 @@ pub async fn reconcile(cat: Arc<Cat>, ctx: Arc<ContextData>) -> Result<Action, O
 
 /// Initializes the status field of a Cat resource with default values.
 pub async fn add_default_status(cat: &mut Cat) -> Result<(), OperatorError> {
-    cat.status = Some(CatStatus {
-        conditions: vec![],
-        uuid: None,
-        observed_generation: Some(0),
-    });
+    cat.status.get_or_insert_with(CatStatus::default);
     Ok(())
 }
 
