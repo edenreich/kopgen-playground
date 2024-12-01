@@ -5,7 +5,7 @@ members = [
     "client-sdk",
     "crdgen",
     "operator",
-    # "tests",
+    "tests",
 ]
 
 [profile.release]

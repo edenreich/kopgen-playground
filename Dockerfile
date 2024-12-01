@@ -2,6 +2,7 @@
 ARG TARGET_ARCH=aarch64-unknown-linux-musl
 
 FROM clux/muslrust:1.84.0-nightly AS build
+
 WORKDIR /app
 
 ARG TARGET_ARCH
@@ -11,7 +12,7 @@ COPY operator operator
 COPY client-sdk client-sdk
 
 RUN rustup target add ${TARGET_ARCH} && \
-    cd k8s-operator && cargo build \
+    cd operator && cargo build \
     --release \
     --no-default-features \
     --target ${TARGET_ARCH}

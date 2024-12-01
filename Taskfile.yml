@@ -101,7 +101,7 @@ tasks:
   package:
     desc: Package the k8s operator
     cmds:
-      - docker build --build-arg TARGET_ARCH={{.TARGET_ARCH}} -t {{.CONTAINER_REGISTRY}}/operator:latest .
+      - docker build -t {{.CONTAINER_REGISTRY}}/operator:latest . -- {{.CLI_ARGS}}
       - docker push {{.CONTAINER_REGISTRY}}/operator:latest
 
   deploy-operator:
