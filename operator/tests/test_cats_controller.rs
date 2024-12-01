@@ -13,7 +13,7 @@ mod tests {
     use operator::{
         controllers::cats::{converters, handle_create},
         errors::OperatorError,
-        types::cat::{Cat, CatSpec, CatStatus},
+        types::cat::{Cat, CatSpec},
         KubeApi,
     };
     use std::sync::Arc;
