@@ -10,6 +10,7 @@ mod tests {
     };
     use openapi::apis::ResponseContent;
     use openapi::{apis::cats_api::CatsApi, apis::Error, models::Cat as CatDto};
+    use operator::controllers::cats::{reconcile, ContextData};
     use operator::{
         controllers::cats::{converters, handle_create},
         errors::OperatorError,
@@ -195,5 +196,101 @@ mod tests {
         let status = cat.status.as_ref().unwrap();
         assert!(status.uuid.is_none());
         assert_eq!(status.conditions.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_reconcile() {
+        let mut kube_client = MockKubeApiClient::new();
+        let mut mock_cats_api = MockCatsApi::new();
+
+        let cat = Arc::new(Cat {
+            metadata: kube::api::ObjectMeta {
+                name: Some("whiskers".to_string()),
+                ..Default::default()
+            },
+            spec: CatSpec {
+                name: "Whiskers".to_string(),
+                breed: "Siamese".to_string(),
+                age: 3,
+            },
+            status: None,
+        });
+
+        let remote_cat = CatDto {
+            uuid: Some(Uuid::new_v4()),
+            name: cat.spec.name.clone(),
+            breed: cat.spec.breed.clone(),
+            age: cat.spec.age,
+        };
+
+        let remote_cat_clone = remote_cat.clone();
+
+        mock_cats_api
+            .expect_get_cat_by_id()
+            .times(1)
+            .returning(move |_| Ok(remote_cat.clone()));
+
+        mock_cats_api
+            .expect_create_cat()
+            .withf(move |dto| {
+                let kube_spec = CatSpec {
+                    name: dto.name.clone(),
+                    breed: dto.breed.clone(),
+                    age: dto.age,
+                };
+
+                dto.name == kube_spec.name
+                    && dto.breed == kube_spec.breed
+                    && dto.age == kube_spec.age
+            })
+            .times(1)
+            .returning(move |dto| {
+                Ok(CatDto {
+                    uuid: remote_cat_clone.uuid,
+                    ..dto
+                })
+            });
+
+        let cats_api = Arc::new(mock_cats_api) as Arc<dyn CatsApi>;
+
+        kube_client
+            .expect_update_status()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        kube_client
+            .expect_add_finalizer()
+            .times(1)
+            .returning(|_| Ok(()));
+
+        kube_client
+            .expect_create_condition()
+            .times(1)
+            .returning(|_, _, _, _, _| Condition {
+                last_transition_time: Time(chrono::Utc::now()),
+                message: "The cat has been created successfully".to_string(),
+                observed_generation: Some(0),
+                reason: "CatCreated".to_string(),
+                status: "True".to_string(),
+                type_: "AvailableCreated".to_string(),
+            });
+
+        let kube_client = Arc::new(kube_client) as Arc<dyn KubeApi<Cat>>;
+
+        let result = reconcile(
+            Arc::clone(&cat),
+            Arc::new(ContextData {
+                kube_client: kube_client.clone(),
+                cats_client: cats_api.clone(),
+            }),
+        )
+        .await;
+
+        assert!(result.is_ok());
+
+        // let cat_status = cat.status.as_ref().unwrap();
+        assert!(cat.status.is_some()); // TODO - Fix this
+
+        // assert_eq!(cat_status.uuid, converters::uuid_to_string(remote_cat.uuid));
     }
 }

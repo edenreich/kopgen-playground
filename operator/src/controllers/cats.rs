@@ -21,8 +21,8 @@ const REQUEUE_AFTER_IN_SEC: u64 = 30;
 /// - Holds shared clients for interacting with Kubernetes (kube_client).
 /// - Holds shared clients for interacting with the external system.
 pub struct ContextData {
-    kube_client: Arc<dyn KubeApi<Cat> + Send + Sync>,
-    cats_client: Arc<dyn CatsApi + Send + Sync>,
+    pub kube_client: Arc<dyn KubeApi<Cat> + Send + Sync>,
+    pub cats_client: Arc<dyn CatsApi + Send + Sync>,
 }
 
 impl ContextData {
