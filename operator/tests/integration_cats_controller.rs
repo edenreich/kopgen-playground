@@ -39,32 +39,16 @@ mod tests {
         impl KubeApi<Cat> for KubeApiClient {
             async fn add_finalizer(&self, resource: &mut Cat) -> Result<(), OperatorError>;
             async fn remove_finalizer(&self, resource: &mut Cat) -> Result<(), OperatorError>;
-            fn create_condition(
-                &self,
-                status: &str,
-                type_: &str,
-                reason: &str,
-                message: &str,
-                observed_generation: Option<i64>,
-            ) -> Condition;
+            fn create_condition(&self, status: &str, type_: &str, reason: &str, message: &str, observed_generation: Option<i64>) -> Condition;
             async fn update_status(&self, status: &Cat) -> Result<(), OperatorError>;
-            async fn replace(
-                &self,
-                name: &str,
-                post_params: &kube::api::PostParams,
-                resource: &Cat,
-            ) -> Result<Cat, OperatorError>;
+            async fn replace(&self, name: &str, post_params: &kube::api::PostParams, resource: &Cat) -> Result<Cat, OperatorError>;
             fn get_client(&self) -> Api<Cat>;
             fn set_client(&mut self, client: Api<Cat>);
         }
     }
 
-    #[tokio::test]
-    async fn test_handle_create_success() {
-        let mut kube_client = MockKubeApiClient::new();
-        let mut mock_cats_api = MockCatsApi::new();
-
-        let mut cat = Cat {
+    fn setup_cat() -> Cat {
+        Cat {
             metadata: kube::api::ObjectMeta {
                 name: Some("whiskers".to_string()),
                 ..Default::default()
@@ -75,7 +59,14 @@ mod tests {
                 age: 3,
             },
             status: None,
-        };
+        }
+    }
+
+    #[tokio::test]
+    async fn test_handle_create_success() {
+        let mut kube_client = MockKubeApiClient::new();
+        let mut mock_cats_api = MockCatsApi::new();
+        let mut cat = setup_cat();
 
         let remote_cat = CatDto {
             uuid: Some(Uuid::new_v4()),
@@ -84,18 +75,14 @@ mod tests {
             age: cat.spec.age,
         };
 
+        let expected_name = cat.spec.name.clone();
+        let expected_breed = cat.spec.breed.clone();
+        let expected_age = cat.spec.age;
+
         mock_cats_api
             .expect_create_cat()
             .withf(move |dto| {
-                let kube_spec = CatSpec {
-                    name: dto.name.clone(),
-                    breed: dto.breed.clone(),
-                    age: dto.age,
-                };
-
-                dto.name == kube_spec.name
-                    && dto.breed == kube_spec.breed
-                    && dto.age == kube_spec.age
+                dto.name == expected_name && dto.breed == expected_breed && dto.age == expected_age
             })
             .times(1)
             .returning(move |dto| {
@@ -105,18 +92,14 @@ mod tests {
                 })
             });
 
-        let cats_api = Arc::new(mock_cats_api) as Arc<dyn CatsApi>;
-
         kube_client
             .expect_update_status()
             .times(1)
             .returning(|_| Ok(()));
-
         kube_client
             .expect_add_finalizer()
             .times(1)
             .returning(|_| Ok(()));
-
         kube_client
             .expect_create_condition()
             .times(1)
@@ -129,8 +112,10 @@ mod tests {
                 type_: "AvailableCreated".to_string(),
             });
 
+        let cats_api = Arc::new(mock_cats_api) as Arc<dyn CatsApi>;
         let kube_client = Arc::new(kube_client) as Arc<dyn KubeApi<Cat>>;
 
+        // Now it's safe to borrow `cat` mutably without partial moves
         let result = handle_create(kube_client.as_ref(), cats_api.as_ref(), &mut cat).await;
 
         assert!(result.is_ok());
@@ -138,7 +123,6 @@ mod tests {
 
         let status = cat.status.as_ref().unwrap();
         assert_eq!(status.uuid, converters::uuid_to_string(remote_cat.uuid));
-        // assert_eq!(status.observed_generation, Some(0)); // TODO - Fix this
         assert_eq!(status.conditions.len(), 1);
 
         let condition = &status.conditions[0];
@@ -153,19 +137,7 @@ mod tests {
     async fn test_handle_create_failed() {
         let mut kube_client = MockKubeApiClient::new();
         let mut mock_cats_api = MockCatsApi::new();
-
-        let mut cat = Cat {
-            metadata: kube::api::ObjectMeta {
-                name: Some("whiskers".to_string()),
-                ..Default::default()
-            },
-            spec: CatSpec {
-                name: "Whiskers".to_string(),
-                breed: "Siamese".to_string(),
-                age: 3,
-            },
-            status: None,
-        };
+        let mut cat = setup_cat();
 
         mock_cats_api.expect_create_cat().times(1).returning(|_| {
             Err(Error::ResponseError(ResponseContent {
@@ -207,19 +179,7 @@ mod tests {
     async fn test_reconcile_new_resource() {
         let mut kube_client = MockKubeApiClient::new();
         let mut mock_cats_api = MockCatsApi::new();
-
-        let mut cat = Arc::new(Cat {
-            metadata: kube::api::ObjectMeta {
-                name: Some("whiskers".to_string()),
-                ..Default::default()
-            },
-            spec: CatSpec {
-                name: "Whiskers".to_string(),
-                breed: "Siamese".to_string(),
-                age: 3,
-            },
-            status: None,
-        });
+        let cat = Arc::new(setup_cat());
 
         let remote_cat = CatDto {
             uuid: Some(Uuid::new_v4()),
@@ -230,6 +190,10 @@ mod tests {
 
         let remote_cat_clone = remote_cat.clone();
 
+        let expected_name = cat.spec.name.clone();
+        let expected_breed = cat.spec.breed.clone();
+        let expected_age = cat.spec.age;
+
         mock_cats_api
             .expect_get_cat_by_id()
             .times(1)
@@ -238,15 +202,7 @@ mod tests {
         mock_cats_api
             .expect_create_cat()
             .withf(move |dto| {
-                let kube_spec = CatSpec {
-                    name: dto.name.clone(),
-                    breed: dto.breed.clone(),
-                    age: dto.age,
-                };
-
-                dto.name == kube_spec.name
-                    && dto.breed == kube_spec.breed
-                    && dto.age == kube_spec.age
+                dto.name == expected_name && dto.breed == expected_breed && dto.age == expected_age
             })
             .times(1)
             .returning(move |dto| {
@@ -277,7 +233,7 @@ mod tests {
                     type_: type_.to_string(),
                     reason: reason.to_string(),
                     message: message.to_string(),
-                    observed_generation,
+                    observed_generation: observed_generation,
                     last_transition_time: Time(chrono::Utc::now()),
                 },
             );
@@ -291,7 +247,7 @@ mod tests {
         let cats_api = Arc::new(mock_cats_api) as Arc<dyn CatsApi>;
 
         let result = reconcile(
-            Arc::clone(&mut cat),
+            Arc::clone(&cat),
             Arc::new(ContextData {
                 kube_client: kube_client.clone(),
                 cats_client: cats_api.clone(),
@@ -300,30 +256,17 @@ mod tests {
         .await;
 
         assert!(result.is_ok());
-        print!("{:#?}", cat);
-        assert!(cat.status.is_some()); // TODO - Fix this
+        println!("{:#?}", cat);
+        assert!(cat.status.is_some());
     }
 
     #[tokio::test]
     async fn test_reconcile_failed_to_create_resource_because_of_internal_server_error() {
         let mut kube_client = MockKubeApiClient::new();
         let mut mock_cats_api = MockCatsApi::new();
-
-        let cat = Arc::new(Cat {
-            metadata: kube::api::ObjectMeta {
-                name: Some("whiskers".to_string()),
-                ..Default::default()
-            },
-            spec: CatSpec {
-                name: "Whiskers".to_string(),
-                breed: "Siamese".to_string(),
-                age: 3,
-            },
-            status: None,
-        });
+        let cat = Arc::new(setup_cat());
 
         mock_cats_api.expect_get_cat_by_id().times(0);
-
         mock_cats_api.expect_create_cat().times(1).returning(|_| {
             Err(Error::ResponseError(ResponseContent {
                 status: reqwest::StatusCode::BAD_REQUEST,
@@ -400,7 +343,6 @@ mod tests {
             .expect_get_cat_by_id()
             .times(1)
             .returning(move |_| Ok(remote_cat.clone()));
-
         mock_cats_api.expect_create_cat().times(0);
         mock_cats_api.expect_update_cat_by_id().times(0);
         kube_client.expect_create_condition().times(0);
@@ -461,7 +403,6 @@ mod tests {
             .expect_get_cat_by_id()
             .times(1)
             .returning(move |_| Ok(remote_cat.clone()));
-
         mock_cats_api.expect_create_cat().times(0);
 
         mock_cats_api
@@ -479,12 +420,10 @@ mod tests {
             .expect_replace()
             .times(1)
             .returning(move |_, _, _| Ok(cat_clone_2.as_ref().clone()));
-
         kube_client
             .expect_update_status()
             .times(1)
             .returning(|_| Ok(()));
-
         kube_client
             .expect_create_condition()
             .times(1)
