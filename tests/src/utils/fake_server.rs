@@ -2,11 +2,12 @@ use anyhow::{Context, Result};
 use std::process::Stdio;
 use tokio::process::Command;
 
+#[derive(Default)]
 pub struct FakeServer {}
 
 impl FakeServer {
     pub fn new() -> Self {
-        Self {}
+        Self::default()
     }
 
     pub async fn package(&self, container_registry: &str) -> Result<()> {
@@ -87,7 +88,7 @@ impl FakeServer {
         Ok(())
     }
 
-    pub async fn teardown(&self, cluster_name: &str) -> Result<()> {
+    pub async fn undeploy_from(&self, cluster_name: &str) -> Result<()> {
         Command::new("kubectl")
             .args(["config", "use-context", cluster_name])
             .stdout(Stdio::inherit())
@@ -108,11 +109,5 @@ impl FakeServer {
             .context("Failed to execute `kubectl delete` for fake-server")?;
 
         Ok(())
-    }
-}
-
-impl Default for FakeServer {
-    fn default() -> Self {
-        Self::new()
     }
 }

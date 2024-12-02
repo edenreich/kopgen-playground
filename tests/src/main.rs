@@ -11,7 +11,7 @@ mod test {
         client::{self, Waiter},
         cluster,
         fake_server::FakeServer,
-        operator as operator_module,
+        operator::Operator,
     };
     use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
     use kube::api::{Api, ObjectMeta};
@@ -22,8 +22,11 @@ mod test {
     #[tokio::test]
     #[serial]
     async fn test_crds_exist() -> anyhow::Result<(), anyhow::Error> {
-        let _ = cluster::setup().await?;
-        operator_module::deploy().await?;
+        let cluster = cluster::setup().await?;
+
+        let operator = Operator::new();
+        operator.package("localhost:5005").await?;
+        operator.deploy_on(&cluster).await?;
 
         let crds: Api<CustomResourceDefinition> = client::setup_crd().await?;
         let params = kube::api::ListParams {
@@ -52,7 +55,9 @@ mod test {
         fake_server.package("localhost:5005").await?;
         fake_server.deploy_on(&cluster).await?;
 
-        operator_module::deploy().await?;
+        let operator = Operator::new();
+        operator.package("localhost:5005").await?;
+        operator.deploy_on(&cluster).await?;
 
         let api: Api<Cat> = client::setup().await?;
         let resource = Cat {
