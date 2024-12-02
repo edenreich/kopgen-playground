@@ -5,25 +5,25 @@ use tokio::process::Command;
 
 /// Represents a fake server
 #[derive(Default)]
-pub struct FakeServer {}
+pub struct FakeApi {}
 
-impl FakeServer {
-    /// Creates a new instance of `FakeServer`.
+impl FakeApi {
+    /// Creates a new instance of `FakeApi`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use fake_server::FakeServer;
+    /// use fake_api::FakeApi;
     ///
-    /// let fake_server = FakeServer::new();
+    /// let fake_api = FakeApi::new();
     /// ```
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Packages the fake-server Docker image and pushes it to the specified container registry.
+    /// Packages the fake-api Docker image and pushes it to the specified container registry.
     ///
-    /// This method builds the Docker image using the provided container registry and tags it as `fake-server:latest`.
+    /// This method builds the Docker image using the provided container registry and tags it as `fake-api:latest`.
     /// After building, it pushes the image to the local container registry.
     ///
     /// # Arguments
@@ -37,12 +37,12 @@ impl FakeServer {
     /// # Examples
     ///
     /// ```
-    /// use fake_server::FakeServer;
+    /// use fake_api::FakeApi;
     ///
     /// #[tokio::main]
     /// async fn main() -> anyhow::Result<()> {
-    ///     let fake_server = FakeServer::new();
-    ///     fake_server.package("localhost:5005").await?;
+    ///     let fake_api = FakeApi::new();
+    ///     fake_api.package("localhost:5005").await?;
     ///     Ok(())
     /// }
     /// ```
@@ -51,9 +51,9 @@ impl FakeServer {
             .args([
                 "build",
                 "-t",
-                &format!("{}/fake-server:latest", container_registry),
+                &format!("{}/fake-api:latest", container_registry),
                 "-f",
-                "fake-server/Dockerfile",
+                "fake-api/Dockerfile",
                 "..",
             ])
             .stdout(Stdio::inherit())
@@ -66,10 +66,7 @@ impl FakeServer {
             .ok_or_else(|| anyhow::anyhow!("`docker build` failed"))?;
 
         Command::new("docker")
-            .args([
-                "push",
-                &format!("{}/fake-server:latest", container_registry),
-            ])
+            .args(["push", &format!("{}/fake-api:latest", container_registry)])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .status()
@@ -82,10 +79,10 @@ impl FakeServer {
         Ok(())
     }
 
-    /// Deploys the fake-server to the specified Kubernetes cluster.
+    /// Deploys the fake-api to the specified Kubernetes cluster.
     ///
-    /// This method switches the kubectl context to the given cluster, applies the fake-server manifests,
-    /// and waits for the fake-server deployment to roll out successfully.
+    /// This method switches the kubectl context to the given cluster, applies the fake-api manifests,
+    /// and waits for the fake-api deployment to roll out successfully.
     ///
     /// # Arguments
     ///
@@ -98,12 +95,12 @@ impl FakeServer {
     /// # Examples
     ///
     /// ```
-    /// use fake_server::FakeServer;
+    /// use fake_api::FakeApi;
     ///
     /// #[tokio::main]
     /// async fn main() -> anyhow::Result<()> {
-    ///     let fake_server = FakeServer::new();
-    ///     fake_server.deploy_on("k3d-k3s-default").await?;
+    ///     let fake_api = FakeApi::new();
+    ///     fake_api.deploy_on("k3d-k3s-default").await?;
     ///     Ok(())
     /// }
     /// ```
@@ -120,38 +117,33 @@ impl FakeServer {
             .ok_or_else(|| anyhow::anyhow!("`kubectl config use-context` failed"))?;
 
         Command::new("kubectl")
-            .args(["apply", "-f", "fake-server/deployment.yaml"])
+            .args(["apply", "-f", "fake-api/deployment.yaml"])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .status()
             .await
-            .context("Failed to execute `kubectl apply` for fake-server")?
+            .context("Failed to execute `kubectl apply` for fake-api")?
             .success()
             .then_some(())
-            .ok_or_else(|| anyhow::anyhow!("`kubectl apply` for fake-server failed"))?;
+            .ok_or_else(|| anyhow::anyhow!("`kubectl apply` for fake-api failed"))?;
 
         Command::new("kubectl")
-            .args([
-                "rollout",
-                "status",
-                "deployment/fake-server",
-                "--timeout=60s",
-            ])
+            .args(["rollout", "status", "deployment/fake-api", "--timeout=60s"])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .status()
             .await
-            .context("Failed to execute `kubectl rollout status` for fake-server")?
+            .context("Failed to execute `kubectl rollout status` for fake-api")?
             .success()
             .then_some(())
-            .ok_or_else(|| anyhow::anyhow!("`kubectl rollout status` for fake-server failed"))?;
+            .ok_or_else(|| anyhow::anyhow!("`kubectl rollout status` for fake-api failed"))?;
 
         Ok(())
     }
 
-    /// Undeploys the fake-server from the specified Kubernetes cluster.
+    /// Undeploys the fake-api from the specified Kubernetes cluster.
     ///
-    /// This method switches the kubectl context to the given cluster and deletes the fake-server deployment.
+    /// This method switches the kubectl context to the given cluster and deletes the fake-api deployment.
     ///
     /// # Arguments
     ///
@@ -164,12 +156,12 @@ impl FakeServer {
     /// # Examples
     ///
     /// ```
-    /// use fake_server::FakeServer;
+    /// use fake_api::FakeApi;
     ///
     /// #[tokio::main]
     /// async fn main() -> anyhow::Result<()> {
-    ///     let fake_server = FakeServer::new();
-    ///     fake_server.undeploy_from("k3d-cluster").await?;
+    ///     let fake_api = FakeApi::new();
+    ///     fake_api.undeploy_from("k3d-cluster").await?;
     ///     Ok(())
     /// }
     /// ```
@@ -186,12 +178,12 @@ impl FakeServer {
             .ok_or_else(|| anyhow::anyhow!("`kubectl config use-context` for teardown failed"))?;
 
         Command::new("kubectl")
-            .args(["delete", "-f", "fake-server/deployment.yaml", "--wait"])
+            .args(["delete", "-f", "fake-api/deployment.yaml", "--wait"])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .status()
             .await
-            .context("Failed to execute `kubectl delete` for fake-server")?;
+            .context("Failed to execute `kubectl delete` for fake-api")?;
 
         Ok(())
     }

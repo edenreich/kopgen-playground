@@ -4,7 +4,7 @@ mod test {
     use crate::utils::{
         client::{self, Waiter},
         cluster,
-        fake_server::FakeServer,
+        fake_api::FakeApi,
         operator::Operator,
     };
     use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
@@ -48,9 +48,9 @@ mod test {
     async fn test_add_finalizer() -> anyhow::Result<(), anyhow::Error> {
         let cluster = cluster::setup().await?;
 
-        let fake_server = FakeServer::new();
-        fake_server.package("localhost:5005").await?;
-        fake_server.deploy_on(&cluster).await?;
+        let fake_api = FakeApi::new();
+        fake_api.package("localhost:5005").await?;
+        fake_api.deploy_on(&cluster).await?;
 
         let operator = Operator::new();
         operator.package("localhost:5005").await?;
@@ -92,7 +92,7 @@ mod test {
         );
 
         operator.undeploy_from(&cluster).await?;
-        fake_server.undeploy_from(&cluster).await?;
+        fake_api.undeploy_from(&cluster).await?;
 
         // Or to ensure fresh testing environment, run:
         // cluster::teardown().await?;
