@@ -108,9 +108,6 @@ tasks:
       - kubectl rollout status deployment/operator
 
   test-e2e:
-    deps:
-      - package-fake-server
-      - deploy-fake-server
     desc: Run the end-to-end tests
     cmds:
       - cargo test --package tests

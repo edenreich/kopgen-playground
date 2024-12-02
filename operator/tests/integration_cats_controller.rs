@@ -124,9 +124,9 @@ mod tests {
 
         let condition = &status.conditions[0];
         assert_eq!(condition.type_, "AvailableCreated");
-        assert_eq!(condition.status, "True");
-        assert_eq!(condition.reason, "CatCreated");
-        assert_eq!(condition.message, "The cat has been created successfully");
+        assert_eq!(condition.status, "Created");
+        assert_eq!(condition.reason, "Resource has been created");
+        assert_eq!(condition.message, "Created the resource");
         assert!(condition.last_transition_time.0.timestamp() > 0);
     }
 
