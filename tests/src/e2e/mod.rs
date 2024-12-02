@@ -1,1 +1,1 @@
-pub mod cats_test;
+mod cats_test;
