@@ -2,27 +2,19 @@ use anyhow::{Context, Result};
 use std::process::Stdio;
 use tokio::process::Command;
 
-pub struct FakeServer {
-    container_registry: String,
-    cluster_name: String,
-}
+pub struct FakeServer {}
 
 impl FakeServer {
-    pub fn new(container_registry: String, cluster_name: String) -> Self {
-        Self {
-            container_registry,
-            cluster_name,
-        }
+    pub fn new() -> Self {
+        Self {}
     }
 
-    /// Packages the fake-server Docker image.
-    pub async fn package(&self) -> Result<()> {
-        // Build the Docker image
+    pub async fn package(&self, container_registry: &str) -> Result<()> {
         Command::new("docker")
             .args([
                 "build",
                 "-t",
-                &format!("{}/fake-server:latest", self.container_registry),
+                &format!("{}/fake-server:latest", container_registry),
                 "-f",
                 "fake-server/Dockerfile",
                 "..",
@@ -36,11 +28,10 @@ impl FakeServer {
             .then_some(())
             .ok_or_else(|| anyhow::anyhow!("`docker build` failed"))?;
 
-        // Push the Docker image
         Command::new("docker")
             .args([
                 "push",
-                &format!("{}/fake-server:latest", self.container_registry),
+                &format!("{}/fake-server:latest", container_registry),
             ])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
@@ -54,11 +45,9 @@ impl FakeServer {
         Ok(())
     }
 
-    /// Deploys the fake-server to the Kubernetes cluster.
-    pub async fn deploy(&self) -> Result<()> {
-        // Set the Kubernetes context
+    pub async fn deploy_on(&self, cluster_name: &str) -> Result<()> {
         Command::new("kubectl")
-            .args(["config", "use-context", &self.cluster_name])
+            .args(["config", "use-context", cluster_name])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .status()
@@ -68,7 +57,6 @@ impl FakeServer {
             .then_some(())
             .ok_or_else(|| anyhow::anyhow!("`kubectl config use-context` failed"))?;
 
-        // Apply the fake-server manifests
         Command::new("kubectl")
             .args(["apply", "-f", "fake-server/deployment.yaml"])
             .stdout(Stdio::inherit())
@@ -80,7 +68,6 @@ impl FakeServer {
             .then_some(())
             .ok_or_else(|| anyhow::anyhow!("`kubectl apply` for fake-server failed"))?;
 
-        // Wait for the Deployment to be ready
         Command::new("kubectl")
             .args([
                 "rollout",
@@ -100,11 +87,9 @@ impl FakeServer {
         Ok(())
     }
 
-    /// Tears down the fake-server from the Kubernetes cluster.
-    pub async fn teardown(&self) -> Result<()> {
-        // Set the Kubernetes context
+    pub async fn teardown(&self, cluster_name: &str) -> Result<()> {
         Command::new("kubectl")
-            .args(["config", "use-context", &self.cluster_name])
+            .args(["config", "use-context", cluster_name])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .status()
@@ -114,7 +99,6 @@ impl FakeServer {
             .then_some(())
             .ok_or_else(|| anyhow::anyhow!("`kubectl config use-context` for teardown failed"))?;
 
-        // Delete the fake-server manifests
         Command::new("kubectl")
             .args(["delete", "-f", "fake-server/deployment.yaml"])
             .stdout(Stdio::inherit())
@@ -124,5 +108,11 @@ impl FakeServer {
             .context("Failed to execute `kubectl delete` for fake-server")?;
 
         Ok(())
+    }
+}
+
+impl Default for FakeServer {
+    fn default() -> Self {
+        Self::new()
     }
 }

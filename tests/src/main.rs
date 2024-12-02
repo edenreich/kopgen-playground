@@ -22,7 +22,7 @@ mod test {
     #[tokio::test]
     #[serial]
     async fn test_crds_exist() -> anyhow::Result<(), anyhow::Error> {
-        cluster::setup().await?;
+        let _ = cluster::setup().await?;
         operator_module::deploy().await?;
 
         let crds: Api<CustomResourceDefinition> = client::setup_crd().await?;
@@ -46,12 +46,11 @@ mod test {
     #[tokio::test]
     #[serial]
     async fn test_add_finalizer() -> anyhow::Result<(), anyhow::Error> {
-        cluster::setup().await?;
+        let cluster = cluster::setup().await?;
 
-        let fake_server =
-            FakeServer::new("localhost:5005".to_string(), "k3d-k3s-default".to_string());
-        fake_server.package().await?;
-        fake_server.deploy().await?;
+        let fake_server = FakeServer::new();
+        fake_server.package("localhost:5005").await?;
+        fake_server.deploy_on(&cluster).await?;
 
         operator_module::deploy().await?;
 
