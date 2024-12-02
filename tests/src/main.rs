@@ -35,13 +35,16 @@ mod test {
         };
         let crds_list = crds.list(&params).await?;
 
-        cluster::teardown().await?;
-
         assert_eq!(
             crds_list.items.len(),
             1,
             "CRDs for cats.example.com not found"
         );
+
+        operator.undeploy_from(&cluster).await?;
+
+        // Or to ensure fresh testing environment, run:
+        // cluster::teardown().await?;
 
         anyhow::Ok(())
     }
@@ -94,7 +97,11 @@ mod test {
             Some(vec!["finalizers.example.com".to_string()])
         );
 
-        cluster::teardown().await?;
+        operator.undeploy_from(&cluster).await?;
+        fake_server.undeploy_from(&cluster).await?;
+
+        // Or to ensure fresh testing environment, run:
+        // cluster::teardown().await?;
 
         anyhow::Ok(())
     }
