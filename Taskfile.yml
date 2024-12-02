@@ -46,7 +46,9 @@ tasks:
   analyse:
     desc: Analyse the code
     cmds:
-      - cargo clippy --all-targets --all-features -- -D warnings
+      - cd operator && cargo clippy --all-targets --all-features -- -D warnings
+      - cd crdgen && cargo clippy --all-targets --all-features -- -D warnings
+      - cd tests && cargo clippy --all-targets --all-features -- -D warnings
 
   setup-target:
     desc: Conditionally add a Rust target based on TARGET_ARCH
