@@ -241,7 +241,7 @@ mod tests {
             .withf(|cat| {
                 cat.status.is_some()
                     && cat.status.as_ref().unwrap().uuid.is_some()
-                    && cat.status.as_ref().unwrap().observed_generation == None
+                    && cat.status.as_ref().unwrap().observed_generation.is_none()
             })
             .returning(|_| Ok(()));
 
