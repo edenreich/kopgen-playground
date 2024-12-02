@@ -93,11 +93,6 @@ tasks:
     cmds:
       - RUST_LOG=info INSTALL_CRDS=true ACCESS_TOKEN="" cargo run --package operator -- run
 
-  run-fake-server:
-    desc: Run the fake server
-    cmds:
-      - docker run --rm -it -p 8080:4010 -v ${PWD}/openapi.yaml:/tmp/openapi.yaml stoplight/prism:latest mock -d -h 0.0.0.0 /tmp/openapi.yaml
-
   package:
     desc: Package the k8s operator
     cmds:
@@ -113,6 +108,9 @@ tasks:
       - kubectl rollout status deployment/operator
 
   test-e2e:
+    deps:
+      - package-fake-server
+      - deploy-fake-server
     desc: Run the end-to-end tests
     cmds:
       - cargo test --package tests

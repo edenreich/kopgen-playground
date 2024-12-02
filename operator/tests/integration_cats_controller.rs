@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
-    use chrono;
-    use k8s_openapi::apimachinery::pkg::apis::meta::v1::{Condition, Time};
     use kube::Api;
     use mockall::mock;
     use openapi::apis::cats_api::{
@@ -39,7 +37,6 @@ mod tests {
         impl KubeApi<Cat> for KubeApiClient {
             async fn add_finalizer(&self, resource: &mut Cat) -> Result<(), OperatorError>;
             async fn remove_finalizer(&self, resource: &mut Cat) -> Result<(), OperatorError>;
-            fn create_condition(&self, status: &str, type_: &str, reason: &str, message: &str, observed_generation: Option<i64>) -> Condition;
             async fn update_status(&self, status: &Cat) -> Result<(), OperatorError>;
             async fn replace(&self, name: &str, post_params: &kube::api::PostParams, resource: &Cat) -> Result<Cat, OperatorError>;
             fn get_client(&self) -> Api<Cat>;
@@ -100,17 +97,17 @@ mod tests {
             .expect_add_finalizer()
             .times(1)
             .returning(|_| Ok(()));
-        kube_client
-            .expect_create_condition()
-            .times(1)
-            .returning(|_, _, _, _, _| Condition {
-                last_transition_time: Time(chrono::Utc::now()),
-                message: "The cat has been created successfully".to_string(),
-                observed_generation: Some(0),
-                reason: "CatCreated".to_string(),
-                status: "True".to_string(),
-                type_: "AvailableCreated".to_string(),
-            });
+        // kube_client
+        //     .expect_create_condition()
+        //     .times(1)
+        //     .returning(|_, _, _, _, _| Condition {
+        //         last_transition_time: Time(chrono::Utc::now()),
+        //         message: "The cat has been created successfully".to_string(),
+        //         observed_generation: Some(0),
+        //         reason: "CatCreated".to_string(),
+        //         status: "True".to_string(),
+        //         type_: "AvailableCreated".to_string(),
+        //     });
 
         let cats_api = Arc::new(mock_cats_api) as Arc<dyn CatsApi>;
         let kube_client = Arc::new(kube_client) as Arc<dyn KubeApi<Cat>>;
@@ -147,17 +144,17 @@ mod tests {
             }))
         });
 
-        kube_client
-            .expect_create_condition()
-            .times(1)
-            .returning(|_, _, _, _, _| Condition {
-                status: "False".to_string(),
-                type_: "AvailableNotCreated".to_string(),
-                reason: "CatNotCreated".to_string(),
-                message: "Failed to create the cat".to_string(),
-                observed_generation: Some(0),
-                last_transition_time: Time(chrono::Utc::now()),
-            });
+        // kube_client
+        //     .expect_create_condition()
+        //     .times(1)
+        //     .returning(|_, _, _, _, _| Condition {
+        //         status: "False".to_string(),
+        //         type_: "AvailableNotCreated".to_string(),
+        //         reason: "CatNotCreated".to_string(),
+        //         message: "Failed to create the cat".to_string(),
+        //         observed_generation: Some(0),
+        //         last_transition_time: Time(chrono::Utc::now()),
+        //     });
 
         kube_client
             .expect_update_status()
@@ -217,26 +214,26 @@ mod tests {
             .times(1)
             .returning(|_| Ok(()));
 
-        kube_client
-            .expect_create_condition()
-            .times(1)
-            .withf(|status, type_, reason, message, observed_generation| {
-                status == "Created"
-                    && type_ == "AvailableCreated"
-                    && reason == "Created the resource"
-                    && message == "Resource has been created"
-                    && *observed_generation == None
-            })
-            .returning(
-                |status, type_, reason, message, observed_generation| Condition {
-                    status: status.to_string(),
-                    type_: type_.to_string(),
-                    reason: reason.to_string(),
-                    message: message.to_string(),
-                    observed_generation: observed_generation,
-                    last_transition_time: Time(chrono::Utc::now()),
-                },
-            );
+        // kube_client
+        //     .expect_create_condition()
+        //     .times(1)
+        //     .withf(|status, type_, reason, message, observed_generation| {
+        //         status == "Created"
+        //             && type_ == "AvailableCreated"
+        //             && reason == "Created the resource"
+        //             && message == "Resource has been created"
+        //             && *observed_generation == None
+        //     })
+        //     .returning(
+        //         |status, type_, reason, message, observed_generation| Condition {
+        //             status: status.to_string(),
+        //             type_: type_.to_string(),
+        //             reason: reason.to_string(),
+        //             message: message.to_string(),
+        //             observed_generation: observed_generation,
+        //             last_transition_time: Time(chrono::Utc::now()),
+        //         },
+        //     );
 
         kube_client
             .expect_update_status()
@@ -278,17 +275,17 @@ mod tests {
             }))
         });
 
-        kube_client
-            .expect_create_condition()
-            .times(1)
-            .returning(|_, _, _, _, _| Condition {
-                status: "Failed".to_string(),
-                type_: "AvailableFailed".to_string(),
-                reason: "CatNotCreated".to_string(),
-                message: "Resource has not been created".to_string(),
-                observed_generation: Some(0),
-                last_transition_time: Time(chrono::Utc::now()),
-            });
+        // kube_client
+        //     .expect_create_condition()
+        //     .times(1)
+        //     .returning(|_, _, _, _, _| Condition {
+        //         status: "Failed".to_string(),
+        //         type_: "AvailableFailed".to_string(),
+        //         reason: "CatNotCreated".to_string(),
+        //         message: "Resource has not been created".to_string(),
+        //         observed_generation: Some(0),
+        //         last_transition_time: Time(chrono::Utc::now()),
+        //     });
 
         kube_client
             .expect_update_status()
@@ -348,7 +345,7 @@ mod tests {
             .returning(move |_| Ok(remote_cat.clone()));
         mock_cats_api.expect_create_cat().times(0);
         mock_cats_api.expect_update_cat_by_id().times(0);
-        kube_client.expect_create_condition().times(0);
+        // kube_client.expect_create_condition().times(0);
         kube_client.expect_update_status().times(0);
         kube_client.expect_add_finalizer().times(0);
 
@@ -427,26 +424,26 @@ mod tests {
             .expect_update_status()
             .times(1)
             .returning(|_| Ok(()));
-        kube_client
-            .expect_create_condition()
-            .times(1)
-            .withf(move |status, type_, reason, message, observed_generation| {
-                status == "Updated"
-                    && type_ == "AvailableUpdated"
-                    && reason == "Updated the resource"
-                    && message == "Resource has been updated"
-                    && *observed_generation == Some(1i64)
-            })
-            .returning(
-                |status, type_, reason, message, observed_generation| Condition {
-                    status: status.to_string(),
-                    type_: type_.to_string(),
-                    reason: reason.to_string(),
-                    message: message.to_string(),
-                    observed_generation: observed_generation,
-                    last_transition_time: Time(chrono::Utc::now()),
-                },
-            );
+        // kube_client
+        //     .expect_create_condition()
+        //     .times(1)
+        //     .withf(move |status, type_, reason, message, observed_generation| {
+        //         status == "Updated"
+        //             && type_ == "AvailableUpdated"
+        //             && reason == "Updated the resource"
+        //             && message == "Resource has been updated"
+        //             && *observed_generation == Some(1i64)
+        //     })
+        //     .returning(
+        //         |status, type_, reason, message, observed_generation| Condition {
+        //             status: status.to_string(),
+        //             type_: type_.to_string(),
+        //             reason: reason.to_string(),
+        //             message: message.to_string(),
+        //             observed_generation: observed_generation,
+        //             last_transition_time: Time(chrono::Utc::now()),
+        //         },
+        //     );
 
         let cats_api = Arc::new(mock_cats_api) as Arc<dyn CatsApi>;
         let kube_client = Arc::new(kube_client) as Arc<dyn KubeApi<Cat>>;

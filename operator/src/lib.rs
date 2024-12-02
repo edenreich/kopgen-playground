@@ -5,8 +5,6 @@ pub mod types;
 
 use crate::errors::OperatorError;
 use async_trait::async_trait;
-use chrono::Utc;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::{Condition, Time};
 use kube::{
     api::{Api, Patch, PatchParams, PostParams, Resource},
     core::object::HasStatus,
@@ -29,15 +27,6 @@ where
     async fn add_finalizer(&self, resource: &mut T) -> Result<(), OperatorError>;
 
     async fn remove_finalizer(&self, resource: &mut T) -> Result<(), OperatorError>;
-
-    fn create_condition(
-        &self,
-        status: &str,
-        type_: &str,
-        reason: &str,
-        message: &str,
-        observed_generation: Option<i64>,
-    ) -> Condition;
 
     async fn update_status(&self, status: &T) -> Result<(), OperatorError>;
 
@@ -138,24 +127,6 @@ where
             })?;
 
         Ok(())
-    }
-
-    fn create_condition(
-        &self,
-        status: &str,
-        type_: &str,
-        reason: &str,
-        message: &str,
-        observed_generation: Option<i64>,
-    ) -> Condition {
-        Condition {
-            last_transition_time: Time(Utc::now()),
-            message: message.to_string(),
-            reason: reason.to_string(),
-            status: status.to_string(),
-            type_: type_.to_string(),
-            observed_generation,
-        }
     }
 
     async fn update_status(&self, status: &T) -> Result<(), OperatorError> {

@@ -1300,6 +1300,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "jsonpath_lib"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaa63191d68230cccb81c5aa23abd53ed64d83337cacbb25a7b8c7979523774f"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jsonptr"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2314,6 +2325,7 @@ version = "1.0.133"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7fceb2473b9166b2294ef05efcb65a3db80803f0b03ef86a5fc88a2b85ee377"
 dependencies = [
+ "indexmap",
  "itoa",
  "memchr",
  "ryu",
@@ -2549,10 +2561,16 @@ name = "tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "env_logger",
+ "jsonpath_lib",
  "k8s-openapi",
  "kube",
+ "log",
  "mockall",
  "operator",
+ "serde",
+ "serde_json",
  "serial_test",
  "tokio",
 ]

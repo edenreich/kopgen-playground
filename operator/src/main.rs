@@ -3,7 +3,7 @@ use anyhow::Context;
 use clap::Parser;
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
 use kube::{api::Api, Client as KubeClient, CustomResourceExt};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use operator::{
     cli::{Cli, Commands},
     KubeApi, KubeApiClient,
@@ -17,9 +17,6 @@ use operator::{
 };
 
 use openapi::apis::{cats_api::CatsApiClient, configuration::Configuration};
-
-const API_URL: &str = "http://localhost:8080";
-const API_USER_AGENT: &str = "k8s-operator";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -43,9 +40,19 @@ async fn main() -> anyhow::Result<()> {
                 let crds = vec![Cat::crd(), Dog::crd(), Horse::crd()];
 
                 for crd in crds {
-                    crd_api
+                    match crd_api
                         .create(&kube::api::PostParams::default(), &crd)
-                        .await?;
+                        .await
+                    {
+                        Ok(_) => {}
+                        Err(kube::Error::Api(ref ae)) if ae.code == 409 => {
+                            warn!(
+                                "CRD '{}' already exists, skipping.",
+                                crd.metadata.name.as_deref().unwrap_or("unknown")
+                            );
+                        }
+                        Err(e) => return Err(e.into()),
+                    }
                 }
             }
 
@@ -63,9 +70,9 @@ async fn main() -> anyhow::Result<()> {
             }
 
             let config = Arc::new(Configuration {
-                base_path: API_URL.to_string(),
+                base_path: std::env::var("API_URL").unwrap_or_default(),
                 client: reqwest::Client::new(),
-                user_agent: Some(API_USER_AGENT.to_string()),
+                user_agent: Some(std::env::var("HTTP_USER_AGENT").unwrap_or_default()),
                 bearer_access_token: Some(std::env::var("ACCESS_TOKEN").unwrap_or_default()),
                 ..Default::default()
             });
