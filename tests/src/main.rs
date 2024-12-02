@@ -20,7 +20,7 @@ mod test {
 
         let crds: Api<CustomResourceDefinition> = Api::all(client.clone());
         let params = kube::api::ListParams {
-            field_selector: Some("metadata.name=<API Group>.example.com".to_string()),
+            field_selector: Some("metadata.name=cats.example.com".to_string()),
             ..Default::default()
         };
         let crds_list = crds.list(&params).await?;
@@ -30,7 +30,7 @@ mod test {
         assert_eq!(
             crds_list.items.len(),
             1,
-            "CRDs for <API Group>.example.com not found"
+            "CRDs for cats.example.com not found"
         );
 
         anyhow::Ok(())
