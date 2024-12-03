@@ -178,12 +178,15 @@ impl FakeApi {
             .ok_or_else(|| anyhow::anyhow!("`kubectl config use-context` for teardown failed"))?;
 
         Command::new("kubectl")
-            .args(["delete", "-f", "fake-api/deployment.yaml", "--wait"])
+            .args(["delete", "-f", "fake-api/deployment.yaml"])
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .status()
             .await
-            .context("Failed to execute `kubectl delete` for fake-api")?;
+            .context("Failed to execute `kubectl delete` for fake-api")?
+            .success()
+            .then_some(())
+            .ok_or_else(|| anyhow::anyhow!("`kubectl config use-context` for teardown failed"))?;
 
         Ok(())
     }

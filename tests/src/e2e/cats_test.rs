@@ -7,11 +7,33 @@ mod test {
         fake_api::FakeApi,
         operator::Operator,
     };
-    use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
+    use k8s_openapi::{
+        api::core::v1::ConfigMap,
+        apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
+    };
     use kube::api::{Api, ObjectMeta};
     use operator::types::cat::{Cat, CatSpec};
     use serial_test::serial;
-    use std::{result::Result, time::Duration};
+    use std::{collections::BTreeMap, result::Result, time::Duration};
+
+    fn get_default_config() -> Option<ConfigMap> {
+        let config: ConfigMap = ConfigMap {
+            metadata: ObjectMeta {
+                name: Some("operator-config".to_string()),
+                ..Default::default()
+            },
+            data: Some(BTreeMap::from([
+                ("API_URL".to_string(), "http://fake-api:8080".to_string()),
+                ("USER_AGENT".to_string(), "operator".to_string()),
+                ("INSTALL_CRDS".to_string(), "true".to_string()),
+                ("RUST_LOG".to_string(), "info".to_string()),
+            ])),
+            binary_data: None,
+            immutable: None,
+        };
+
+        Some(config)
+    }
 
     #[tokio::test]
     #[serial]
@@ -20,7 +42,7 @@ mod test {
 
         let operator = Operator::new();
         operator.package("localhost:5005").await?;
-        operator.deploy_on(&cluster).await?;
+        operator.deploy_on(&cluster, get_default_config()).await?;
 
         let crds: Api<CustomResourceDefinition> = client::setup_crd().await?;
         let params = kube::api::ListParams {
@@ -54,7 +76,7 @@ mod test {
 
         let operator = Operator::new();
         operator.package("localhost:5005").await?;
-        operator.deploy_on(&cluster).await?;
+        operator.deploy_on(&cluster, get_default_config()).await?;
 
         let api: Api<Cat> = client::setup().await?;
         let resource = Cat {
