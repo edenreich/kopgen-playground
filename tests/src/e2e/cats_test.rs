@@ -17,7 +17,7 @@ mod test {
     use std::{collections::BTreeMap, result::Result, time::Duration};
 
     fn get_default_config() -> Option<ConfigMap> {
-        let config: ConfigMap = ConfigMap {
+        Some(ConfigMap {
             metadata: ObjectMeta {
                 name: Some("operator-config".to_string()),
                 ..Default::default()
@@ -30,9 +30,7 @@ mod test {
             ])),
             binary_data: None,
             immutable: None,
-        };
-
-        Some(config)
+        })
     }
 
     #[tokio::test]
@@ -40,9 +38,9 @@ mod test {
     async fn test_crds_exist() -> anyhow::Result<(), anyhow::Error> {
         let cluster = cluster::setup().await?;
 
-        let operator = Operator::new();
+        let operator = Operator::new(get_default_config());
         operator.package("localhost:5005").await?;
-        operator.deploy_on(&cluster, get_default_config()).await?;
+        operator.deploy_on(&cluster).await?;
 
         let crds: Api<CustomResourceDefinition> = client::setup_crd().await?;
         let params = kube::api::ListParams {
@@ -74,9 +72,9 @@ mod test {
         fake_api.package("localhost:5005").await?;
         fake_api.deploy_on(&cluster).await?;
 
-        let operator = Operator::new();
+        let operator = Operator::new(get_default_config());
         operator.package("localhost:5005").await?;
-        operator.deploy_on(&cluster, get_default_config()).await?;
+        operator.deploy_on(&cluster).await?;
 
         let api: Api<Cat> = client::setup().await?;
         let resource = Cat {

@@ -7,7 +7,9 @@ use tokio::process::Command;
 
 /// Represents the Kubernetes Operator
 #[derive(Default)]
-pub struct Operator {}
+pub struct Operator {
+    config: Option<ConfigMap>,
+}
 
 impl Operator {
     /// Creates a new instance of the `Operator`.
@@ -19,8 +21,8 @@ impl Operator {
     ///
     /// let operator = Operator::new();
     /// ```
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(config: Option<ConfigMap>) -> Self {
+        Self { config }
     }
 
     /// Packages the operator Docker image and pushes it to the specified container registry.
@@ -106,11 +108,7 @@ impl Operator {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn deploy_on(
-        &self,
-        cluster_name: &str,
-        config: Option<ConfigMap>,
-    ) -> anyhow::Result<()> {
+    pub async fn deploy_on(&self, cluster_name: &str) -> anyhow::Result<()> {
         Command::new("kubectl")
             .args(["config", "use-context", cluster_name])
             .stdout(Stdio::inherit())
@@ -144,11 +142,11 @@ impl Operator {
             .then_some(())
             .ok_or_else(|| anyhow::anyhow!("`kubectl apply` for operator configmap failed"))?;
 
-        if config.is_some() {
+        if let Some(config) = &self.config {
             let client = kube::Client::try_default().await?;
             let cms = Api::<ConfigMap>::namespaced(client.clone(), "default");
             let _ = cms.delete("operator-config", &Default::default()).await;
-            cms.create(&PostParams::default(), &config.unwrap()).await?;
+            cms.create(&PostParams::default(), config).await?;
         }
 
         Command::new("kubectl")
